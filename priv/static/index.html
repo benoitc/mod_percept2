@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>ejabberd percept2 module</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Latest compiled and minified CSS -->
+<link rel="stylesheet" href="./assets/css/bootstrap.min.css">
+
+<!-- Optional theme -->
+<link rel="stylesheet" href="./assets/css/bootstrap-theme.min.css">
+
+</head>
+<body>
+  <div class="container">
+    <h2>Profiling ejabberd with percept2</h2>
+
+    <form class="form-horizontal" role="form" id="fprof">
+      <div class="form-group">
+        <div class="form-group">
+          <label for="name" class="col-sm-2 control-label">Name</label>
+          <div class="col-sm-10">
+            <input type="text" class="form-control" id="name">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="mods" class="col-sm-2 control-label">Modules</label>
+          <div class="col-sm-10">
+            <input type="text" class="form-control" id="mods">
+          </div>
+        </div>
+        <div class="form-group">
+          <div class="col-sm-offset-2 col-sm-10">
+            <button type="submit" class="btn btn-default" id="bsubmit">Start to profile</button>
+          </div>
+        </div>
+    </form>
+
+  <br>
+
+  <div id="profile">
+    <h3>Profiling....</h3>
+    <div class="progress">
+    <div class="progress-bar" role="progressbar" aria-valuenow="0"
+      aria-valuemin="0" aria-valuemax="100" style="width: 0%;"
+      id="progress">
+      <span class="sr-only" id="tp">0% complete</span>
+    </div>
+  </div>
+
+  <div id="status"></div>
+
+</div>
+
+
+ </div>
+
+<script src="./assets/js/json2.js"></script>
+<script src="./assets/js/jquery-1.11.1.min.js"></script>
+
+      <!-- Latest compiled and minified JavaScript -->
+<script src="./assets/js/bootstrap.min.js"></script>
+
+<script>
+
+$(document).ready(function() {
+  $("#profile").hide();
+
+  // get websocket uri
+  var netloc = document.location.host,
+      path =  document.location.pathname.replace(/\/$/, '');
+  var ws_uri = "ws://" + netloc + path + "/ws";
+
+  var socket;
+  $("#fprof").submit(function(e) {
+    $("#bsubmit").attr("disabled", "disabled");
+    $("#profile").show();
+    var name = $("#name").val();
+    var mods = $("#mods").val().replace(/^\s+|\s+$/g,"").split(/\s*,\s*/);
+
+    var s = JSON.stringify({
+      cmd: "profile",
+      name: name,
+      mods: mods});
+
+    var timer,
+        progress = 10;
+
+
+    function show_progress(step) {
+      progress += step;
+      $("#progress").attr("aria-valuenow", progress);
+      $("#progress").width(progress + "%");
+      $("#tp").text(progress + "% complete");
+    }
+
+    try {
+      var socket = new WebSocket(ws_uri);
+
+      socket.onopen = function() {
+        socket.send(s);
+      }
+
+      socket.onmessage = function(msg){
+        var obj = JSON.parse(msg.data);
+
+        if (typeof(obj.ok) != "undefined") {
+          show_progress(10);
+          timer = setInterval(function() {
+            show_progress(2);
+          }, 1000);
+        } else if (typeof(obj.status) != "undefined") {
+          if (obj.status === "analyzing") {
+            $("#profile h3").text("Analyzing...");
+            window.clearInterval(timer);
+            timer = setInterval(function() {
+              show_progress(1);
+            }, 1000);
+          } else {
+            window.clearInterval(timer);
+            progress = 100;
+            $("#progress").attr("aria-valuenow", progress);
+            $("#progress").width(progress + "%");
+            $("#tp").text(progress + "% complete");
+            $("#profile h3").text("Done.");
+
+
+            timer = setInterval(function() {
+              $("#profile").hide();
+              $("#bsubmit").removeAttr("disabled");
+              progress = 10;
+              // reset progress
+              $("#profile h3").text("Profiling...");
+              $("#progress").attr("aria-valuenow", 0);
+              $("#progress").width("0%");
+              $("#tp").text("0% complete");
+              window.clearInterval(timer);
+            }, 5000);
+
+            socket.close();
+          }
+        } else {
+          if (typeof(obj.error) != "undefined") {
+
+            alert("Profiling already started!");
+          }
+        }
+      }
+
+      socket.onclose = function() {
+      }
+
+
+    } catch(exc) {
+      alert(exc);
+    }
+
+
+
+    e.preventDefault();
+    return false;
+
+  });
+});
+
+
+</script>
+
+</body>
+
+
+</html>

@@ -1,0 +1,10 @@
+{application, mod_percept2,
+ [
+  {description, "percept2 ejabberd module"},
+  {vsn, "0.1.0"},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {include_applications, [percept2, jiffy]}
+ ]}.
